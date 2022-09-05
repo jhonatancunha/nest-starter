@@ -72,12 +72,13 @@
     "typescript": "^4.3.5"
   },
   "jest": {
+    "rootDir": "src",
+
     "moduleFileExtensions": [
       "js",
       "json",
       "ts"
     ],
-    "rootDir": "src",
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
@@ -94,4 +95,5 @@
     }
   },
   "packageManager": "yarn@3.2.3"
+  
 }

@@ -3,16 +3,18 @@ import { Test } from '@nestjs/testing';
 import { AuthModule } from 'src/modules/infrastructure/auth/auth.module';
 import { DatabaseTestModule } from 'src/modules/infrastructure/database/database-test.module';
 import * as request from 'supertest';
+import { CategoryModule } from '../../category/category.module';
 import { TodoItemModule } from '../todo-item.module';
 
 let app: INestApplication;
 let appRequest: request.SuperTest<request.Test>;
 let token1: string;
 let token2: string;
+let categoryId: string;
 
 beforeAll(async () => {
   const module = await Test.createTestingModule({
-    imports: [DatabaseTestModule, AuthModule, TodoItemModule],
+    imports: [DatabaseTestModule, AuthModule, TodoItemModule, CategoryModule],
   }).compile();
   app = module.createNestApplication();
   await app.init();
@@ -48,6 +50,14 @@ beforeAll(async () => {
     .expect(200);
 
   token2 = login2.text;
+
+  const postCategory = await appRequest
+    .post('/category/create')
+    .set('Authorization', `Bearer ${token1}`)
+    .send({ name: 'category 1' })
+    .expect(201);
+
+  categoryId = postCategory.body.id;
 });
 
 afterAll(async () => {
@@ -61,6 +71,7 @@ describe('Create To-Do Items', () => {
       .send({
         title: 'test',
         description: 'test',
+        categoryId: categoryId,
       })
       .expect(403);
   });
@@ -70,6 +81,18 @@ describe('Create To-Do Items', () => {
       .post('/todo-item/create')
       .send({
         title: 'test',
+        categoryId: categoryId,
+      })
+      .set('Authorization', `Bearer ${token1}`)
+      .expect(400);
+  });
+
+  it('/create (POST) - Fail (random string at categoryId)', async () => {
+    return await appRequest
+      .post('/todo-item/create')
+      .send({
+        title: 'test',
+        categoryId: 'categoryId',
       })
       .set('Authorization', `Bearer ${token1}`)
       .expect(400);
@@ -81,6 +104,7 @@ describe('Create To-Do Items', () => {
       .send({
         title: 'test',
         description: 'test',
+        categoryId: categoryId,
       })
       .set('Authorization', `Bearer ${token1}`)
       .expect(201);

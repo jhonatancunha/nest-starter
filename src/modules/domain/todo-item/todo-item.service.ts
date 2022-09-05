@@ -10,6 +10,7 @@ import {
 } from 'src/common/interfaces/pagination.interface';
 import { Repository } from 'typeorm';
 import { User } from '../../infrastructure/user/entities/user.entity';
+import { Category } from '../category/entities/category.entity';
 import { CreateTodoItemDto } from './dto/create-todo-item.dto';
 import { UpdateTodoItemDto } from './dto/update-todo-item.dto';
 import { TodoItem } from './entities/todo-item.entity';
@@ -25,6 +26,9 @@ export class TodoItemService {
   ): Promise<TodoItem> {
     const todoItem = this.todoItemsRepository.create({
       ...createTodoItemDto,
+      category: {
+        id: createTodoItemDto.categoryId,
+      },
       createdBy: user,
     });
 
@@ -35,25 +39,22 @@ export class TodoItemService {
     paginationParams: PaginationParams,
     user: User,
   ): Promise<PaginationResult<TodoItem>> {
-    const todoItems = await this.todoItemsRepository.find({
+    const todoItems = await this.todoItemsRepository.findAndCount({
       where: { createdBy: { id: user.id } },
       skip: (paginationParams.page - 1) * paginationParams.limit,
       take: paginationParams.limit,
-    });
-
-    const countItems = await this.todoItemsRepository.count({
-      where: { createdBy: { id: user.id } },
+      relations: ['category'],
     });
 
     const meta = {
       itemsPerPage: +paginationParams.limit,
-      totalItems: +countItems,
+      totalItems: +todoItems[1],
       currentPage: +paginationParams.page,
-      totalPages: +Math.ceil(countItems / paginationParams.limit),
+      totalPages: +Math.ceil(todoItems[1] / paginationParams.limit),
     };
 
     return {
-      data: todoItems,
+      data: todoItems[0],
       meta: meta,
     };
   }
@@ -61,7 +62,7 @@ export class TodoItemService {
   async findOne(id: string, user: User): Promise<TodoItem> {
     const todoItem = await this.todoItemsRepository.findOne({
       where: { id: id },
-      relations: ['createdBy'],
+      relations: ['createdBy', 'category'],
     });
     if (!todoItem) throw new NotFoundException();
     if (todoItem.createdBy.id !== user.id) throw new ForbiddenException();
@@ -76,9 +77,14 @@ export class TodoItemService {
   ): Promise<TodoItem> {
     let todoItem = await this.todoItemsRepository.findOne({
       where: { id: id },
-      relations: ['createdBy'],
+      relations: ['createdBy', 'category'],
     });
     if (todoItem.createdBy.id !== user.id) throw new ForbiddenException();
+
+    if (updateTodoItemDto.categoryId) {
+      todoItem.category = { id: updateTodoItemDto.categoryId } as Category;
+    }
+
     await this.todoItemsRepository.update(id, updateTodoItemDto);
     todoItem = await this.todoItemsRepository.findOneBy({ id: id });
 
